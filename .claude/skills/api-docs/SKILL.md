@@ -1,12 +1,12 @@
 ---
 name: api-docs
-description: Maintain OpenAPI/Swagger documentation in sync with implemented endpoints. Use when adding, changing, or removing API endpoints.
+description: Maintain Swagger documentation in sync with implemented endpoints. Use when adding, changing, or removing API endpoints.
 ---
 
-# Skill: API Docs (OpenAPI / Swagger)
+# Skill: API Docs (Swagger)
 
 ## Purpose
-Keep `docs/openapi.yaml` accurate and up to date with the actual API surface.
+Keep `docs/swagger.yaml` accurate and up to date with the actual API surface.
 The spec is the contract — it must reflect reality, not aspirations.
 
 ## When to Use
@@ -17,7 +17,7 @@ The spec is the contract — it must reflect reality, not aspirations.
 - Before writing a codex-task-contract that includes API work
 
 ## Spec Location
-Default: `docs/openapi.yaml`
+Default: `docs/swagger.yaml`
 If the project uses a different location, record it in MEMORY.md.
 
 ---
@@ -31,7 +31,7 @@ State clearly:
 - Whether this is additive or breaking
 
 ### Step 2 — Read current spec
-Read `docs/openapi.yaml` before making any changes.
+Read `docs/swagger.yaml` before making any changes.
 Locate the affected path(s) under `paths:`.
 
 ### Step 3 — Update the spec
@@ -54,12 +54,12 @@ A change is **breaking** if it:
 For any breaking change: stop, report it explicitly, and propose a versioning strategy (`/v2/` prefix or deprecation header).
 
 ### Step 5 — Validate the spec
-Run the project's OpenAPI linter if configured:
+Run the project's Swagger linter if configured:
 ```
 # Examples — use whichever applies to this project
-npx @redocly/cli lint docs/openapi.yaml
-npx swagger-cli validate docs/openapi.yaml
-npx @stoplight/spectral-cli lint docs/openapi.yaml
+npx @redocly/cli lint docs/swagger.yaml
+npx swagger-cli validate docs/swagger.yaml
+npx @stoplight/spectral-cli lint docs/swagger.yaml
 ```
 If no linter is configured, validate the YAML is parseable and internally consistent.
 
@@ -109,7 +109,7 @@ The spec is the acceptance criterion for the implementation.
 ---
 
 ## Completion Criteria
-- [ ] All affected endpoints updated in `docs/openapi.yaml`
+- [ ] All affected endpoints updated in `docs/swagger.yaml`
 - [ ] No undocumented fields in request/response schemas
 - [ ] Breaking changes identified and flagged
 - [ ] Spec passes linter (if configured)

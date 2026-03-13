@@ -172,10 +172,10 @@ For any task that involves:
 - Any change to a public-facing API endpoint must be treated as a breaking change by default.
 - Propose versioning or backward-compatible approaches before making breaking changes.
 - Document all new API contracts **before** implementation — the OpenAPI spec entry is the acceptance criterion.
-- The canonical API spec lives at `docs/openapi.yaml`. Keep it in sync with the implementation.
+- The canonical API spec lives at `docs/swagger.yaml`. Keep it in sync with the implementation.
 - Use the `api-docs` skill for any endpoint add/change/removal.
 
-API spec location: `docs/openapi.yaml` (copy from `docs/openapi.example.yaml` when bootstrapping).
+API spec location: `docs/swagger.yaml` (copy from `docs/swagger.example.yaml` when bootstrapping).
 
 ---
 
