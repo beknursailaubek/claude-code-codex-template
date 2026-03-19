@@ -22,8 +22,8 @@ if [ -z "$CMD" ]; then
 fi
 
 block() {
-  echo "BLOCKED: $1" >&2
-  echo "Command was: $CMD" >&2
+  echo "BLOCKED: $1"
+  echo "Command was: $CMD"
   exit 2
 }
 
@@ -35,7 +35,7 @@ if echo "$CMD" | grep -qE 'rm\s+-[a-zA-Z]*r[a-zA-Z]*f|rm\s+-[a-zA-Z]*f[a-zA-Z]*r
 fi
 
 # force push
-if echo "$CMD" | grep -qE 'git\s+push\s+.*(--force|-f)'; then
+if echo "$CMD" | grep -qE 'git\s+push\s+.*(--force\b|-f\b)' && ! echo "$CMD" | grep -q '\-\-force-with-lease'; then
   block "Force push is not allowed. Use --force-with-lease if necessary and confirm with user."
 fi
 

@@ -25,9 +25,9 @@ Always exits 0.
 
 ## Testing hooks manually
 ```bash
-# Should block (exit 2) — use || true to continue session:
-echo '{"tool_name":"Bash","tool_input":{"command":"rm -rf /"}}' | .claude/hooks/pre-tool-use.sh || true
-echo $?   # 2
+# Should block (exit 2):
+echo '{"tool_name":"Bash","tool_input":{"command":"rm -rf /home/user"}}' | .claude/hooks/pre-tool-use.sh; code=$?
+echo $code   # 2
 
 # Should allow (exit 0):
 echo '{"tool_name":"Bash","tool_input":{"command":"ls"}}' | .claude/hooks/pre-tool-use.sh
