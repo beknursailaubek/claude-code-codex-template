@@ -1,6 +1,7 @@
 ---
 name: codex-task-contract
 description: Package a bounded implementation task for delegation to Codex via MCP. Produces a structured contract that constrains Codex to a well-defined scope. Must be used before every Codex invocation.
+user-invocable: false
 ---
 
 # Skill: Codex Task Contract

@@ -67,7 +67,14 @@ See [docs/codex-mcp-policy.md](docs/codex-mcp-policy.md) for the full delegation
 │  ├─ project-bootstrap.md          ← first steps after using this template
 │  └─ template-customization.md     ← adapting for different project types
 ├─ .claude/
-│  ├─ settings.json                 ← Claude Code settings
+│  ├─ settings.json                 ← Claude Code settings (attribution, effort, hooks, permissions)
+│  ├─ rules/                        ← modular rule files imported by CLAUDE.md
+│  │  ├─ core-behavior.md           ← read-before-edit, minimal diffs, no speculation
+│  │  ├─ commits.md                 ← Conventional Commits, no Co-Authored-By
+│  │  ├─ testing.md                 ← TDD, lint→unit→build order
+│  │  ├─ security.md                ← guardrails, risk reporting
+│  │  ├─ api-contracts.md           ← OpenAPI-first, breaking change policy
+│  │  └─ stack.md                   ← package manager, language, DB (filled at bootstrap)
 │  ├─ agents/
 │  │  ├─ architect.md
 │  │  ├─ reviewer.md
@@ -80,14 +87,16 @@ See [docs/codex-mcp-policy.md](docs/codex-mcp-policy.md) for the full delegation
 │  │  ├─ bugfix-workflow/SKILL.md
 │  │  ├─ code-review/SKILL.md
 │  │  ├─ db-migration-safety/SKILL.md
+│  │  ├─ api-docs/SKILL.md
 │  │  ├─ codex-task-contract/SKILL.md
 │  │  ├─ project-bootstrap/SKILL.md
+│  │  ├─ upgrade-template/SKILL.md
 │  │  └─ documentation-sync/SKILL.md
 │  └─ hooks/
 │     ├─ README.md
-│     ├─ pre-tool-use.example.sh
-│     ├─ post-edit-check.example.sh
-│     └─ completion-report.example.sh
+│     ├─ pre-tool-use.sh            ← blocks rm -rf, force push, DROP TABLE
+│     ├─ post-edit-lint.sh          ← auto-lints edited files (eslint/ruff/gofmt)
+│     └─ session-report.sh          ← prints branch + diff stats on session end
 └─ memory/                          ← individual memory files (auto-managed)
 ```
 
@@ -106,29 +115,18 @@ cd my-new-project
 rm -rf .git && git init
 ```
 
-### 2. Replace all placeholders
+### 2. Run the bootstrap skill
 
-Search for `{{` in all files and replace with project-specific values:
-```bash
-grep -r "{{" . --include="*.md" --include="*.json" -l
+Open Claude Code and run:
+```
+/project-bootstrap
 ```
 
-Key placeholders to fill:
-| Placeholder | Replace with |
-|---|---|
-| `{{PROJECT_NAME}}` | your project name |
-| `{{STACK}}` | e.g. "Django + React + PostgreSQL" |
-| `{{ARCHITECTURE}}` | e.g. "modular monolith", "microservices" |
-| `{{TEAM}}` | team name or members |
-| `{{REPO_URL}}` | your GitHub repo URL |
+This skill auto-detects your package manager, asks stack questions one at a time, fills all `{{PLACEHOLDER}}` values, creates `.mcp.json`, prunes irrelevant agents, and commits the result.
 
-### 3. Read the bootstrap guide
+### 3. Start your first session
 
-Follow [docs/project-bootstrap.md](docs/project-bootstrap.md) to configure the template for your specific project type.
-
-### 4. Start your first session
-
-Open Claude Code and begin with:
+Begin subsequent sessions with:
 > "Read CLAUDE.md and MEMORY.md, then help me with [task]."
 
 ---
@@ -172,10 +170,12 @@ Skills are workflow playbooks invoked with `/skill-name` or via the `Skill` tool
 |---|---|
 | `feature-delivery` | End-to-end flow for shipping a feature |
 | `bugfix-workflow` | Structured approach to diagnosing and fixing bugs |
-| `code-review` | Consistent review process |
+| `code-review` | Consistent review process (isolated subagent) |
 | `db-migration-safety` | Safe database migration workflow |
+| `api-docs` | Keep Swagger/OpenAPI spec in sync with endpoints |
 | `codex-task-contract` | Package a bounded task for Codex |
 | `project-bootstrap` | Initialize a new project from this template |
+| `upgrade-template` | Bring an existing project up to the current template |
 | `documentation-sync` | Keep docs in sync with code changes |
 
 ---
@@ -193,21 +193,13 @@ Categories: architecture observations, debugging patterns, known traps, deployme
 
 ---
 
-## Customization Checklist
+## Customization
 
-After creating a project from this template:
+Run `/project-bootstrap` in Claude Code — it handles all setup automatically.
 
-- [ ] Replace all `{{PLACEHOLDER}}` values in CLAUDE.md
-- [ ] Update the project identity block at the top of CLAUDE.md
-- [ ] Remove agent files that don't apply (e.g., remove frontend-implementer for backend-only)
-- [ ] Remove skills that don't apply (e.g., remove db-migration-safety for stateless services)
-- [ ] Add initial MEMORY.md entries for your stack choices
-- [ ] Update `.claude/settings.json` if needed
-- [ ] Configure hooks if your team uses them
-- [ ] Add project-specific validation commands to CLAUDE.md
-- [ ] Set up the MCP codex server in your Claude Code environment
+For existing projects, run `/upgrade-template` to add missing rules, hooks, settings, and skill frontmatter without overwriting anything already configured.
 
-See [docs/template-customization.md](docs/template-customization.md) for project-type-specific guidance.
+For manual customization, see [docs/template-customization.md](docs/template-customization.md).
 
 ---
 
@@ -217,4 +209,4 @@ If you discover a pattern, guardrail, or workflow that should be in the template
 
 ---
 
-*Template version: 1.0.0 — 2026-03-13*
+*Template version: 2.0.0 — 2026-03-19*
