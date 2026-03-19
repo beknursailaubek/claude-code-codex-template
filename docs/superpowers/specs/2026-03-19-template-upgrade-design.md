@@ -22,12 +22,14 @@ Each layer is independent and can be applied/rolled back without affecting other
 **What:** Bake personal conventions directly into `.claude/settings.json`.
 
 **Changes:**
-- `attribution.commit: ""` — eliminates Co-Authored-By globally (no more memory workarounds)
+- `attribution.commit: ""` — eliminates Co-Authored-By trailer (documented Claude Code setting; verified in official docs)
 - `attribution.pr: ""` — clean PR attribution
-- `effortLevel: "high"` — default effort for complex projects
-- `env.CLAUDE_LANG: "ru"` — Russian as default response language
+- `effortLevel: "high"` — default effort level (documented: `"low"/"medium"/"high"`, persists across sessions)
+- `language: "ru"` — Russian response language (documented key; `env.CLAUDE_LANG` is NOT the correct key)
 
-**Why it matters:** Currently Co-Authored-By is handled via per-project memory. Attribution in settings is the canonical solution — one place, always respected.
+> **Verification note:** All four keys (`attribution`, `effortLevel`, `language`) are documented in the official Claude Code settings reference. If runtime behavior differs, fall back to: keep memory-based Co-Authored-By rule, remove `language` key, set `effortLevel` manually per session.
+
+**Why it matters:** Co-Authored-By is currently handled via per-project memory files — a workaround. `attribution` in settings is the canonical, always-respected solution.
 
 **Files touched:**
 - `.claude/settings.json`
@@ -45,36 +47,43 @@ Each layer is independent and can be applied/rolled back without affecting other
 ├── testing.md          # TDD, test frameworks, coverage expectations
 ├── security.md         # auth, migrations, destructive ops, guardrails
 ├── api-contracts.md    # Swagger-first, breaking changes policy
-└── stack.md            # yarn vs npm, language, formatter, linter
+└── stack.md            # package manager, language, formatter, linter (template placeholder — filled per project)
 ```
 
 **Import syntax in CLAUDE.md:**
 ```
 @.claude/rules/commits.md
+@.claude/rules/testing.md
 @.claude/rules/security.md
-...
+@.claude/rules/api-contracts.md
+@.claude/rules/stack.md
 ```
 
-**Why it matters:**
-- Easier to maintain: change one rule without touching everything else
-- Path-specific rules via YAML frontmatter `paths:` (monorepo support for BilimBase)
-- Rules can be selectively disabled per project via `claudeMdExcludes`
-- Subdirectory CLAUDE.md files load on demand — relevant for multi-service repos
+> **Verification note:** `@import` syntax is supported in project-level CLAUDE.md (same scope as `./CLAUDE.md` or `.claude/CLAUDE.md`). Must be verified that it works when CLAUDE.md is at repo root (not inside `.claude/`). If unsupported at root, move CLAUDE.md to `.claude/CLAUDE.md`.
 
 **Rules content (personal defaults):**
 - `commits.md`: Conventional Commits (`feat:`, `fix:`, `chore:`, `docs:`), no Co-Authored-By, separate branch per feature
 - `testing.md`: TDD before implementation, lint → unit → build → integration order
 - `security.md`: ask before destructive ops, no force push, no migration without confirmation
 - `api-contracts.md`: OpenAPI spec first, no breaking changes without versioning, `docs/swagger.yaml` canonical
-- `stack.md`: yarn (never npm), NestJS/Next.js patterns, Prisma, PostgreSQL conventions
+- `stack.md`: contains `{{PACKAGE_MANAGER}}`, `{{PRIMARY_LANGUAGE}}`, etc. — filled during bootstrap; NOT hardcoded to yarn
+
+**Monorepo support (deferred, documented):**
+Rules files support YAML frontmatter `paths:` for path-scoped loading (e.g., `stack-backend.md` only loads for `backend/**`). BilimBase should eventually split `stack.md` into `stack-backend.md` + `stack-frontend.md` using this mechanism.
+
+**Disabling a rule:**
+To disable a rule file in a specific project, add to that project's `.claude/settings.json`:
+```json
+{ "claudeMdExcludes": [".claude/rules/stack.md"] }
+```
 
 **Files touched:**
-- `CLAUDE.md` (shortened)
+- `CLAUDE.md` (shortened, imports added)
 - `.claude/rules/commits.md` (new)
 - `.claude/rules/testing.md` (new)
 - `.claude/rules/security.md` (new)
 - `.claude/rules/api-contracts.md` (new)
-- `.claude/rules/stack.md` (new)
+- `.claude/rules/stack.md` (new, with placeholders)
 
 ---
 
@@ -82,31 +91,68 @@ Each layer is independent and can be applied/rolled back without affecting other
 
 **What:** Replace example hook scripts with working implementations. Wire them into `settings.json`.
 
+**Hook JSON schema (Claude Code sends to stdin):**
+
+For `PreToolUse` (Bash):
+```json
+{
+  "tool_name": "Bash",
+  "tool_input": { "command": "<the bash command string>" }
+}
+```
+
+For `PostToolUse` (Edit/Write):
+```json
+{
+  "tool_name": "Edit",
+  "tool_input": { "file_path": "<absolute path>" },
+  "tool_response": { "content": "..." }
+}
+```
+
+> **Verification note:** Schema based on Claude Code hooks documentation and README example `{"tool_name":"Bash"}`. Field names `tool_input.command` and `tool_input.file_path` must be confirmed during implementation by logging actual stdin. Hook implementations must extract fields defensively (check for missing keys, exit 0 if schema unexpected).
+
 **Hooks:**
 
 ### `pre-tool-use.sh` — Safety guard
-Blocks dangerous Bash commands before execution. Scans stdin JSON for patterns:
-- `rm -rf` / `rm -r` (non-temp paths)
+Reads `tool_input.command` from stdin JSON. Blocks if command matches:
+- `rm -rf` / `rm -r` on non-/tmp paths
 - `git push --force` / `git push -f`
-- `DROP TABLE` / `DROP DATABASE`
+- `DROP TABLE` / `DROP DATABASE` (case-insensitive)
 - `git reset --hard`
 - `git checkout -- .` / `git restore .`
 
-Exit code 2 → Claude sees error and stops. Stderr message explains what was blocked and why.
+Exit code 2 → stderr explains what was blocked. Exit code 0 → allow.
+Graceful degradation: if `jq` not available, exit 0 (never block on parse failure).
+
+**Manual test:**
+```bash
+echo '{"tool_name":"Bash","tool_input":{"command":"rm -rf /"}}' | .claude/hooks/pre-tool-use.sh
+echo $?   # expected: 2
+echo '{"tool_name":"Bash","tool_input":{"command":"ls -la"}}' | .claude/hooks/pre-tool-use.sh
+echo $?   # expected: 0
+```
 
 ### `post-edit-lint.sh` — Auto-lint after edit
-Fires after `Edit` or `Write` tool. Reads the edited file path from stdin JSON.
-- Detects project type from file extension
-- Runs appropriate linter if available: `eslint` (JS/TS), `ruff` (Python), `gofmt` (Go)
-- Non-blocking (exit 0 always) — shows lint output as context for Claude
+Reads `tool_input.file_path` from stdin JSON.
+- Detects type from extension: `.ts/.js/.tsx/.jsx` → eslint, `.py` → ruff, `.go` → gofmt
+- Runs linter only if binary available (`command -v eslint`)
+- Always exits 0 — non-blocking, output shown as context
+- Graceful degradation: if file path missing or linter absent, silently exit 0
+
+**Manual test:**
+```bash
+echo '{"tool_name":"Edit","tool_input":{"file_path":"/tmp/test.ts"}}' | .claude/hooks/post-edit-lint.sh
+echo $?   # expected: 0 always
+```
 
 ### `session-report.sh` — Completion summary
-Fires on `Stop` event. Outputs:
-- `git diff --stat HEAD` — what changed
-- List of modified files
-- Current branch
+Fires on `Stop`. Outputs to stdout:
+- Current branch (`git branch --show-current`)
+- `git diff --stat HEAD` — files changed
+- Count of modified files
 
-Non-blocking, informational only.
+Always exits 0. Graceful degradation: if not a git repo, outputs "not a git repository."
 
 **Settings wiring:**
 ```json
@@ -118,9 +164,9 @@ Non-blocking, informational only.
 ```
 
 **Files touched:**
-- `.claude/hooks/pre-tool-use.sh` (new, replaces example)
-- `.claude/hooks/post-edit-lint.sh` (new, replaces example)
-- `.claude/hooks/session-report.sh` (new, replaces example)
+- `.claude/hooks/pre-tool-use.sh` (replaces example)
+- `.claude/hooks/post-edit-lint.sh` (replaces example)
+- `.claude/hooks/session-report.sh` (replaces example)
 - `.claude/settings.json`
 
 ---
@@ -133,16 +179,17 @@ Non-blocking, informational only.
 
 | Skill | Improvement |
 |---|---|
-| `code-review` | `context: fork` (isolated), shell preprocessing `` !`git diff HEAD` `` auto-injects diff |
+| `code-review` | `context: fork` (isolated subagent), explicit Step 1: run `git diff HEAD` before reviewing |
 | `bugfix-workflow` | `context: fork` (isolated), `allowed-tools: [Bash, Read, Grep, Glob]` |
-| `feature-delivery` | `allowed-tools: [Bash, Read, Write, Edit, Grep, Glob, Agent, TodoWrite]` — no per-use approval |
+| `feature-delivery` | `allowed-tools: [Bash, Read, Write, Edit, Grep, Glob, Agent, TodoWrite]` |
 | `codex-task-contract` | `user-invocable: false` — Claude-only, hidden from `/` menu |
-| `project-bootstrap` | Major upgrade (see Layer 5) |
+
+> **Note on shell preprocessing:** `` !`git diff HEAD` `` syntax for auto-injecting diff at invocation time was evaluated. It is an advanced feature requiring verification; instead, `code-review` skill will include an explicit "Step 1: run git diff HEAD" instruction — equivalent outcome, no verification risk.
 
 **Why it matters:**
 - `context: fork` prevents code-review from polluting main conversation context
 - `allowed-tools` removes constant permission prompts during feature delivery
-- Shell preprocessing in code-review automatically injects current diff — no manual copy-paste
+- `codex-task-contract` hidden from menu reduces accidental invocation
 
 **Files touched:**
 - `.claude/skills/code-review/SKILL.md`
@@ -154,30 +201,32 @@ Non-blocking, informational only.
 
 ## Layer 5 — Bootstrap Skill Upgrade
 
-**What:** Upgrade `project-bootstrap` to auto-detect and apply personal conventions, and add an `upgrade-template` skill for existing projects.
+**What:** Upgrade `project-bootstrap` to auto-detect and apply personal conventions. Add `upgrade-template` skill for existing projects.
 
 **Bootstrap flow (new):**
-1. Read `~/.claude/settings.json` → copy `attribution`, `effortLevel` to project settings
-2. Read `~/.claude/CLAUDE.md` → extract personal rules summary for context
-3. Interactive stack questions (one at a time):
-   - Package manager? (yarn/npm/pnpm) → fills `stack.md`
+1. Check `~/.claude/settings.json` — if `attribution` / `effortLevel` already set globally, skip copying (avoid shadow). If not set globally, add to project-level `settings.json`.
+2. Ask stack questions (one at a time):
+   - Package manager? (detect from lockfile first: `yarn.lock` → yarn, `package-lock.json` → npm, `pnpm-lock.yaml` → pnpm) — fills `stack.md`
    - Primary language + framework? → fills `stack.md`
    - DB? → fills `stack.md`
    - Test framework? → fills `stack.md`
-4. Fill all `{{PLACEHOLDER}}` values in CLAUDE.md from answers
-5. Create `.mcp.json` stub (codex server pre-configured)
-6. Remove irrelevant agent files (e.g., no frontend? remove `frontend-implementer.md`)
-7. Create initial MEMORY.md entries for stack decisions
-8. Commit: `chore: bootstrap project from template`
+3. Fill all `{{PLACEHOLDER}}` values in CLAUDE.md from answers
+4. Create `.mcp.json` stub (codex server pre-configured)
+5. Remove irrelevant agent files (e.g., no frontend → remove `frontend-implementer.md`)
+6. Create initial `MEMORY.md` entries for stack decisions
+7. Commit: `chore: initialize project from ai-project-template`
 
 **New skill: `upgrade-template`**
-For existing projects (BilimBase, Archi, Accreditation). Checks what's missing vs current template version and adds:
-- `.claude/rules/` files if absent
-- Real hooks if still using examples
-- Missing frontmatter in skills
-- Updated settings keys
 
-Non-destructive: never overwrites existing content, only adds missing pieces.
+For existing projects. Performs a checklist of additions — **never overwrites existing content.**
+
+Upgrade checklist:
+1. `.claude/rules/` directory — add missing rule files only; skip if file already exists with that name
+2. Hooks — detect "example" hooks by checking for the string `# EXAMPLE` in the file header; replace only those; leave custom hooks untouched; handle filename collision by adding `_template` suffix and noting the conflict
+3. Skills frontmatter — add missing `context:` / `allowed-tools:` / `user-invocable:` only if key is absent in frontmatter
+4. Settings — write to `settings.json` (not `settings.local.json`); never touch `settings.local.json`; skip keys already present
+
+Output: summary of what was added vs skipped.
 
 **Files touched:**
 - `.claude/skills/project-bootstrap/SKILL.md` (major rewrite)
@@ -187,22 +236,25 @@ Non-destructive: never overwrites existing content, only adds missing pieces.
 
 ## Definition of Done
 
-- [ ] Layer 1: `settings.json` has `attribution`, `effortLevel`, `env`
-- [ ] Layer 2: `.claude/rules/` has 5 rule files; CLAUDE.md shortened and imports them
-- [ ] Layer 3: 3 hook scripts are functional (tested manually); wired in `settings.json`
-- [ ] Layer 4: 4 skills have updated frontmatter
-- [ ] Layer 5: bootstrap skill asks questions and fills placeholders; upgrade-template skill exists
+- [ ] Layer 1: `settings.json` has `attribution`, `effortLevel`, `language`; verified at runtime via `/status`
+- [ ] Layer 2: `.claude/rules/` has 5 rule files; CLAUDE.md shortened and imports them; `@import` verified to load in session
+- [ ] Layer 3: all 3 hook scripts pass manual tests (see test commands above); wired in `settings.json`
+- [ ] Layer 4: 4 skills have updated frontmatter; `codex-task-contract` not visible in `/` menu
+- [ ] Layer 5: bootstrap skill fills all placeholders and detects package manager; `upgrade-template` skill exists and runs non-destructively
+
+---
 
 ## Risks
 
-- Hook scripts assume bash + common CLI tools (eslint, git) — must gracefully degrade if not available
-- `@import` syntax in CLAUDE.md adds a load dependency — if a rules file is missing, session may start with incomplete context
-- `context: fork` in skills means they lose conversation history — skills must be self-contained
-- upgrade-template skill must be conservative — never overwrite, only append/add
+- Hook scripts assume bash + `jq` — must gracefully degrade if not available (always exit 0 on parse failure)
+- `@import` syntax must be verified at project-root CLAUDE.md scope
+- `context: fork` skills lose conversation history — skills must be fully self-contained
+- `upgrade-template` must detect example vs custom hooks reliably — use `# EXAMPLE` header marker convention
 
-## Out of Scope
+## Deferred
 
-- `sandbox.enabled` (project-specific, too risky as default)
-- `agent: Explore/Plan` in agent frontmatter (minor improvement, deferred)
-- Path-specific rules via `paths:` frontmatter (useful for monorepos, added in stack.md as documented option)
+- `sandbox.enabled` (too risky as default, project-specific decision)
+- Path-specific `paths:` frontmatter in rules (documented as option in `stack.md`; BilimBase should adopt when ready)
+- Shell preprocessing `` !`command` `` in skills (needs verification)
+- `agent: Explore/Plan` in agent frontmatter (minor improvement)
 - `/batch` skill (separate initiative)
