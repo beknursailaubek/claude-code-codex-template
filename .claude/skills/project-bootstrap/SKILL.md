@@ -75,6 +75,8 @@ grep -r "{{" . --include="*.md" --include="*.json" -l
 | `{{BUILD_COMMAND}}` | infer or `N/A` |
 
 ### Step 5 — Create `.mcp.json`
+If `.mcp.json` already exists, read it and add the `codex` entry only if it is not already present.
+If it does not exist, create it:
 ```json
 {
   "mcpServers": {
@@ -103,7 +105,7 @@ Run lint, then tests. Document result in MEMORY.md if not all green.
 
 ### Step 9 — Commit
 ```bash
-git add CLAUDE.md .claude/ docs/ README.md .gitignore .mcp.json
+git add CLAUDE.md MEMORY.md .claude/ docs/ README.md .gitignore .mcp.json
 git commit -m "chore: initialize project from ai-project-template"
 ```
 

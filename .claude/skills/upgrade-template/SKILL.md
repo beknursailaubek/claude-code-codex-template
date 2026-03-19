@@ -35,8 +35,10 @@ Run these checks:
 # Check for rules directory
 ls .claude/rules/ 2>/dev/null || echo "MISSING: .claude/rules/"
 
-# Check for old example hooks (identified by .example.sh suffix)
-ls .claude/hooks/*.example.sh 2>/dev/null && echo "FOUND: old example hooks to replace" || echo "No example hooks"
+# Check for missing hooks
+for hook in pre-tool-use.sh post-edit-lint.sh session-report.sh; do
+  [ -f ".claude/hooks/$hook" ] && echo "OK: hooks/$hook" || echo "MISSING: hooks/$hook"
+done
 
 # Check settings keys
 python3 -c "
@@ -73,25 +75,34 @@ for skill, keys in skills.items():
 
 ### Step 2 — Add Missing Rules Files
 
+First, locate the template source. Check in order:
+1. `$AI_TEMPLATE_PATH` environment variable
+2. `~/personal/ai-project-template` (default location)
+3. Ask the user if neither resolves
+
 For each file absent from `.claude/rules/` (any of: `core-behavior.md`, `commits.md`, `testing.md`, `security.md`, `api-contracts.md`, `stack.md`):
-- Copy the file from the `ai-project-template` source at `.claude/rules/<name>.md`
+- Copy the file from `<template-source>/.claude/rules/<name>.md`
 - Do NOT touch existing rule files — only add missing ones
-- For `stack.md`: detect the project's package manager from lockfiles (`yarn.lock` → yarn, etc.) and pre-fill `{{PACKAGE_MANAGER}}`
+- For `stack.md`: detect the project's package manager from lockfiles (`yarn.lock` → yarn, `package-lock.json` → npm, `pnpm-lock.yaml` → pnpm) and pre-fill `{{PACKAGE_MANAGER}}`
 
-### Step 3 — Replace Example Hooks
+### Step 3 — Install Missing Hooks
 
-Identify old-style example hooks by `.example.sh` suffix:
+The three hooks this template provides are: `pre-tool-use.sh`, `post-edit-lint.sh`, `session-report.sh`.
+
 ```bash
-ls .claude/hooks/*.example.sh 2>/dev/null
+for hook in pre-tool-use.sh post-edit-lint.sh session-report.sh; do
+  [ -f ".claude/hooks/$hook" ] && echo "EXISTS: $hook" || echo "MISSING: $hook"
+done
 ```
 
-For each `.example.sh` file found:
-- Create the real implementation (see `ai-project-template/.claude/hooks/` for source)
-- The real files are named: `pre-tool-use.sh`, `post-edit-lint.sh`, `session-report.sh`
-- Check for custom hooks with the same target name first:
-  - If `pre-tool-use.sh` already exists and is NOT an example → skip, note conflict
-  - If it doesn't exist → create it
-- After creating real hooks, delete the `.example.sh` files
+For each MISSING hook:
+- Copy from `<template-source>/.claude/hooks/<name>.sh`
+- Run `chmod +x .claude/hooks/<name>.sh`
+
+For each EXISTING hook:
+- Do NOT overwrite — leave untouched, note "skipped (custom hook present)"
+
+If `.claude/hooks/` directory does not exist, create it first: `mkdir -p .claude/hooks`
 
 ### Step 4 — Add Missing Settings Keys
 
@@ -120,7 +131,7 @@ Print summary:
 ```
 Upgrade Summary:
   Rules added:              [list or "none"]
-  Hooks replaced:           [list or "none"]
+  Hooks installed:          [list or "none"]
   Settings keys added:      [list or "none"]
   Skill frontmatter updated:[list or "none"]
   Skipped (already present):[list]
