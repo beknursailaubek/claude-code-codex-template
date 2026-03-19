@@ -1,108 +1,116 @@
 ---
 name: project-bootstrap
-description: First-session workflow for initializing a new project from this template. Covers placeholder replacement, configuration, agent/skill pruning, and initial MEMORY.md population.
+description: First-session workflow for initializing a new project from this template. Auto-detects package manager, fills placeholders, prunes irrelevant agents/skills, and populates MEMORY.md.
+allowed-tools:
+  - Bash
+  - Read
+  - Write
+  - Edit
+  - Grep
+  - Glob
+  - TodoWrite
 ---
 
 # Skill: Project Bootstrap
 
 ## Purpose
-Get a new project from "just cloned from template" to "ready for first feature" in a single structured session.
+Get a new project from "just cloned from template" to "ready for first feature" in one structured session.
 
 ## When to Use
 - First session after creating a new project from this template
 - When onboarding an existing project to this workflow
 
+---
+
 ## Workflow
 
-### Step 1 — Identify Project Type
-Determine which project profile applies:
-- Backend-only (API/service/worker)
-- Frontend-only (SPA/SSR/static)
-- Fullstack (monolith or separate repos)
-- Monorepo (multiple packages/services)
-- Modular monolith
-- Microservice
+### Step 1 — Detect Package Manager
+```bash
+ls package.json yarn.lock package-lock.json pnpm-lock.yaml 2>/dev/null
+```
+- `yarn.lock` present → `yarn`
+- `package-lock.json` present → `npm`
+- `pnpm-lock.yaml` present → `pnpm`
+- None found or no `package.json` → ask the user
 
-See [docs/template-customization.md](../../docs/template-customization.md) for pruning guidance per type.
+### Step 2 — Check Global Settings (avoid duplication)
+Read `~/.claude/settings.json`. If `attribution` and `effortLevel` are already set globally, do NOT copy them to project `.claude/settings.json` — global values already apply. If not set globally, add to project settings:
+```json
+{ "attribution": { "commit": "", "pr": "" }, "effortLevel": "high", "language": "ru" }
+```
 
-### Step 2 — Fill CLAUDE.md Placeholders
-Replace all `{{PLACEHOLDER}}` values:
+### Step 3 — Ask Stack Questions (one at a time)
+Ask sequentially — do not batch:
+1. "What is the primary language and framework? (e.g., TypeScript + NestJS)"
+2. "What database? (e.g., PostgreSQL, MongoDB, none)"
+3. "What test framework? (e.g., Jest, Vitest, pytest, none)"
+4. "What linter/formatter? (e.g., ESLint + Prettier, ruff + black, none)"
+5. "CI system? (e.g., GitHub Actions, none)"
+6. "Deploy method? (e.g., Docker + Railway, Vercel, none)"
+
+### Step 4 — Fill Placeholders
+Search and replace all `{{PLACEHOLDER}}` values:
 ```bash
 grep -r "{{" . --include="*.md" --include="*.json" -l
 ```
 
-Required placeholders:
-- `{{PROJECT_NAME}}` — project name
-- `{{STACK}}` — language + framework + DB (e.g., "FastAPI + React + PostgreSQL")
-- `{{ARCHITECTURE}}` — structure (e.g., "modular monolith")
-- `{{REPO_URL}}` — GitHub URL
-- `{{TEAM}}` — team name
-- `{{LINT_COMMAND}}` — e.g., `ruff check .`
-- `{{TEST_COMMAND}}` — e.g., `pytest`
-- `{{BUILD_COMMAND}}` — e.g., `docker build .` or N/A
-- `{{PRIMARY_LANGUAGE}}` — e.g., Python 3.12
-- `{{PACKAGE_MANAGER}}` — e.g., pip/poetry/npm/pnpm
-- `{{DATABASE}}` — e.g., PostgreSQL 15
-- `{{TEST_FRAMEWORK}}` — e.g., pytest / vitest
-- `{{LINTER}}` — e.g., ruff / eslint
-- `{{FORMATTER}}` — e.g., black / prettier
-- `{{CI_SYSTEM}}` — e.g., GitHub Actions
-- `{{DEPLOY_METHOD}}` — e.g., Docker + Railway
-
-### Step 3 — Prune Irrelevant Agents
-Remove agent files that don't apply to this project:
-
-| Remove if... | Agent |
+| Placeholder | Value |
 |---|---|
-| No frontend | `frontend-implementer.md` |
-| No database | `migration-operator.md` |
-| Single-person project | `reviewer.md` (optional) |
+| `{{PROJECT_NAME}}` | ask user |
+| `{{STACK}}` | from Step 3 |
+| `{{ARCHITECTURE}}` | ask user (e.g., "modular monolith") |
+| `{{REPO_URL}}` | `git remote get-url origin` or ask |
+| `{{TEAM}}` | ask user |
+| `{{PACKAGE_MANAGER}}` | from Step 1 |
+| `{{PRIMARY_LANGUAGE}}` | from Step 3 |
+| `{{FRAMEWORK}}` | from Step 3 |
+| `{{DATABASE}}` | from Step 3 |
+| `{{TEST_FRAMEWORK}}` | from Step 3 |
+| `{{LINTER}}` | from Step 3 |
+| `{{FORMATTER}}` | from Step 3 |
+| `{{CI_SYSTEM}}` | from Step 3 |
+| `{{DEPLOY_METHOD}}` | from Step 3 |
+| `{{LINT_COMMAND}}` | infer from linter (e.g., `eslint .`, `ruff check .`) |
+| `{{TEST_COMMAND}}` | infer (e.g., `yarn test`, `pytest`) |
+| `{{BUILD_COMMAND}}` | infer or `N/A` |
 
-### Step 4 — Prune Irrelevant Skills
-Remove skill directories that don't apply:
-
-| Remove if... | Skill |
-|---|---|
-| No database | `db-migration-safety/` |
-| No frontend | remove frontend references from `feature-delivery` |
-
-### Step 5 — Populate Initial MEMORY.md
-Add the first memory entries for decisions already made:
-- Why this stack was chosen
-- Architecture constraints (e.g., "must fit in a single Heroku dyno")
-- Any known traps from day one (e.g., "ORM version X has a known bug with Y")
-- Team preferences already established
-
-### Step 6 — Verify Claude Code Environment
-- Confirm the `codex` MCP server is connected (if using Codex)
-- Test with: `Use the codex MCP tool to echo 'hello'`
-- Confirm `.claude/settings.json` permissions are appropriate
-
-### Step 7 — Run Baseline Validation
-If a codebase already exists:
+### Step 5 — Create `.mcp.json`
+```json
+{
+  "mcpServers": {
+    "codex": {
+      "command": "codex",
+      "args": ["mcp"],
+      "env": {}
+    }
+  }
+}
 ```
-1. Run lint
-2. Run tests
-3. Confirm baseline is green before making any changes
-```
-Record the baseline state in MEMORY.md if tests are not all green.
 
-### Step 8 — Commit the Bootstrap
+### Step 6 — Prune Irrelevant Agents
+- "Does this project have a frontend?" If no → `rm .claude/agents/frontend-implementer.md`
+- "Does it use a database?" If no → `rm .claude/agents/migration-operator.md`
+
+### Step 7 — Populate Initial MEMORY.md
+Add entries for decisions already made:
+- Stack choices and why
+- Architecture pattern
+- Known constraints (e.g., "must fit single Railway dyno")
+- Team preferences
+
+### Step 8 — Run Baseline Validation (if codebase exists)
+Run lint, then tests. Document result in MEMORY.md if not all green.
+
+### Step 9 — Commit
 ```bash
-git add CLAUDE.md MEMORY.md .claude/ docs/ README.md .gitignore
+git add CLAUDE.md .claude/ docs/ README.md .gitignore .mcp.json
 git commit -m "chore: initialize project from ai-project-template"
 ```
 
-## Expected Outputs
-- CLAUDE.md fully configured (no remaining `{{}}` placeholders)
-- MEMORY.md with at least 2–3 initial entries
-- Irrelevant agents and skills removed
-- Baseline validation passing (or documented as failing)
-- Initial commit created
-
 ## Completion Criteria
-- [ ] All placeholders replaced
+- [ ] No remaining `{{}}` placeholders in CLAUDE.md and rules files
+- [ ] `.mcp.json` created
 - [ ] Irrelevant agents/skills pruned
-- [ ] MEMORY.md has initial entries
-- [ ] Codex MCP confirmed working (if using)
-- [ ] Baseline validation run and results documented
+- [ ] MEMORY.md has at least 2 initial entries
+- [ ] Baseline validation run (or noted as N/A)
+- [ ] Initial commit created
