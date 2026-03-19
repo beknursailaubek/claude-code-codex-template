@@ -1,6 +1,7 @@
 ---
 name: code-review
 description: Consistent code review process for diffs, PRs, or completed implementation tasks. Produces severity-classified, actionable feedback.
+context: fork
 ---
 
 # Skill: Code Review
@@ -17,6 +18,8 @@ Provide a consistent, actionable review of code changes. Catch correctness issue
 ## Workflow
 
 ### Step 1 — Gather Context
+- Run `git diff HEAD` to get the full diff. For a specific commit: `git show <hash>`.
+  This is the primary artifact for review — read it before reading individual files.
 - Read the task description or PR summary to understand what the change is supposed to do.
 - Read CLAUDE.md rules relevant to the change (stack conventions, minimal-diff policy, etc.).
 - Check MEMORY.md for known patterns or traps related to the changed area.

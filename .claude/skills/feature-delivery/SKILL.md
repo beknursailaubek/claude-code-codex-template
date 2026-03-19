@@ -1,6 +1,16 @@
 ---
 name: feature-delivery
 description: End-to-end workflow for planning, implementing, testing, and shipping a feature. Covers task decomposition, delegation, validation, and documentation.
+allowed-tools:
+  - Bash
+  - Read
+  - Write
+  - Edit
+  - Grep
+  - Glob
+  - Agent
+  - TodoWrite
+  - Skill
 ---
 
 # Skill: Feature Delivery

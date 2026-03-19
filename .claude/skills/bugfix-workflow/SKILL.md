@@ -1,6 +1,13 @@
 ---
 name: bugfix-workflow
 description: Structured workflow for diagnosing, fixing, and verifying bugs. Ensures root cause is found before a fix is applied, and regression tests are added.
+context: fork
+allowed-tools:
+  - Bash
+  - Read
+  - Grep
+  - Glob
+  - TodoWrite
 ---
 
 # Skill: Bugfix Workflow
