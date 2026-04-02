@@ -1,6 +1,6 @@
 ---
 name: feature-delivery
-description: End-to-end workflow for planning, implementing, testing, and shipping a feature. Covers task decomposition, delegation, validation, and documentation.
+description: End-to-end 7-phase workflow for shipping features. Includes parallel codebase exploration, structured clarifying questions, architecture design with trade-offs, implementation, parallel code review, and documentation.
 allowed-tools:
   - Bash
   - Read
@@ -26,65 +26,100 @@ Use this skill at the start of any feature request to ensure nothing is skipped.
 
 ## Workflow
 
-### Step 1 — Understand and Restate
+### Phase 1 — Discovery
 - Restate the feature in 1–2 sentences.
-- Ask clarifying questions if scope, acceptance criteria, or affected modules are unclear.
-- Do not proceed until the scope is clear.
+- Identify all ambiguities, edge cases, and underspecified behaviors.
+- Do not proceed until the scope is clear enough to decompose.
 
-### Step 2 — Explore the Codebase
-- Identify all files and modules affected by the change.
-- Note existing patterns to follow (naming, structure, error handling).
-- Check for related tests, migrations, and documentation that may need updating.
+### Phase 2 — Codebase Exploration (parallel agents)
+Spawn 2–4 explorer subagents in parallel, each examining a different aspect:
 
-### Step 3 — Architecture Pass (if needed)
-- For multi-module or interface-changing features, invoke the `architect` agent.
-- Produce a plan, risks, and Definition of Done.
-- Get confirmation before proceeding to implementation.
+| Agent | Focus |
+|---|---|
+| Explorer 1 | Existing patterns, naming conventions, file structure in affected modules |
+| Explorer 2 | Related tests, test patterns, fixtures, coverage gaps |
+| Explorer 3 | API contracts, data models, migration history in affected area |
+| Explorer 4 | Dependencies, imports, cross-module interactions |
 
-### Step 4 — Decompose into Tasks
-Break the feature into bounded subtasks, each suitable for a subagent:
-- Each task has: a clear objective, specific input files, expected output files, and acceptance criteria.
-- Order tasks to minimize dependencies and enable incremental testing.
+Each agent reports: key files, patterns found, potential risks.
+Read the files identified by agents before proceeding — build context, don't assume.
 
-### Step 5 — Implement
+### Phase 3 — Clarifying Questions
+**This is one of the most important phases.**
+
+Based on exploration results, present organized questions to the user:
+- Edge cases discovered during exploration
+- Error handling preferences
+- Design choices with trade-offs
+- Scope boundaries ("should this also handle X?")
+
+Ask questions grouped by topic. Wait for answers before proceeding.
+Do NOT batch all questions at once — group by priority.
+
+### Phase 4 — Architecture Design
+Present 2–3 implementation approaches with trade-offs:
+
+```
+## Option A: [name]
+Pros: ...
+Cons: ...
+Effort: ...
+
+## Option B: [name]
+Pros: ...
+Cons: ...
+Effort: ...
+
+## Recommendation: Option [X] because...
+```
+
+For multi-module features, invoke the `architect` agent.
+Get explicit user confirmation of the chosen approach before implementing.
+
+### Phase 5 — Implementation
+Requires explicit user approval of the architecture.
+
+- Follow existing codebase conventions exactly — do not introduce new patterns
 - For each subtask, choose the right executor:
   - Backend logic → `backend-implementer` subagent
   - Frontend/UI → `frontend-implementer` subagent
-  - Tests → `test-engineer` agent
-  - Migrations → `migration-operator` agent (with confirmation)
-- Review each output before moving to the next task.
+  - Tests → `test-engineer` subagent (can run in parallel with implementation)
+  - Migrations → `migration-operator` subagent (with confirmation)
+  - Simple/small changes → handle directly
+- Run parallel subagents when tasks are independent
+- Validate after each major step (lint → test → build)
 
-### Step 6 — Validate
-Run in order:
-1. Lint / format
-2. Unit tests
-3. Build (if applicable)
-4. Integration tests (if applicable)
+### Phase 6 — Quality Review (parallel agents)
+Spawn 3 review subagents in parallel:
 
-Do not proceed until all checks pass.
+| Agent | Focus |
+|---|---|
+| Simplicity reviewer | Can anything be simplified? Unnecessary abstractions? Over-engineering? |
+| Correctness reviewer | Edge cases, error handling, type safety, race conditions |
+| Convention reviewer | Matches project patterns? CLAUDE.md compliance? Minimal diff? |
 
-### Step 7 — Documentation
-- Update API docs if a public interface changed.
-- Update relevant module READMEs if behavior changed.
-- Use `documentation-sync` skill if the change is broad.
+Collect findings and present to the user. Fix all BLOCKERs before proceeding.
 
-### Step 8 — Memory Update
-- Record any non-obvious architectural decisions in MEMORY.md.
-- Record any debugging patterns or traps discovered.
-
-### Step 9 — Final Review
-- Invoke the `reviewer` agent on the full diff.
-- Address any BLOCKER or MAJOR issues before marking complete.
+### Phase 7 — Summary and Documentation
+1. **Update docs** — API docs, module READMEs, Swagger spec if applicable
+2. **Update MEMORY.md** — record non-obvious decisions and traps discovered
+3. **Produce summary:**
+   - What was built and why
+   - Key decisions made (with rationale)
+   - Files modified
+   - Tests added
+   - Remaining work or follow-ups
 
 ## Expected Outputs
 - Working, tested implementation
 - Updated documentation (if applicable)
-- Passing validation commands
+- Passing validation commands (lint → test → build)
 - MEMORY.md updated (if applicable)
-- Reviewer approval
+- Quality review passed
 
 ## Completion Criteria
-- [ ] All acceptance criteria from Step 1 are met
+- [ ] All acceptance criteria from Phase 1 are met
 - [ ] Validation commands pass
-- [ ] Reviewer has approved or all blockers are resolved
+- [ ] Quality review passed (all BLOCKERs resolved)
+- [ ] Documentation updated
 - [ ] MEMORY.md updated if learnings were discovered

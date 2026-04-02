@@ -14,6 +14,21 @@ Exit code 2 = blocked (Claude sees the error and stops).
 Exit code 0 = allowed.
 Requires `jq`. Gracefully allows all commands if `jq` is not installed.
 
+## `security-check.py` — Security Scanner (PreToolUse → Edit|Write)
+Runs alongside protect-files.sh on every Edit or Write. Scans new code for 9 security anti-patterns:
+- SQL Injection (string interpolation in queries)
+- XSS (innerHTML, dangerouslySetInnerHTML, v-html)
+- Command Injection (exec, os.system, shell=True)
+- Eval usage (eval, new Function)
+- Hardcoded secrets (password=, api_key=, token=)
+- Insecure randomness (Math.random for security)
+- Pickle deserialization (RCE risk)
+- Path traversal (user input in file paths)
+- Missing auth markers (@Public, security: [])
+
+Advisory only (exit 0) — warns but does not block. Requires Python 3.
+Severity levels: CRITICAL, HIGH, MEDIUM.
+
 ## `protect-files.sh` — File Protection (PreToolUse → Edit|Write)
 Runs before every Edit or Write tool call. Blocks editing:
 - `.env`, `.env.local`, `.env.production`, `.env.staging`, `.env.development`

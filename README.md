@@ -102,7 +102,10 @@ This template solves that with clear rules, specialized subagents, and repeatabl
 │  │  ├─ batch-workflow/           ← parallel large-scale changes ★
 │  │  ├─ doctor/                   ← environment diagnostics ★
 │  │  ├─ session-memory/           ← live session tracking ★
-│  │  └─ memory-consolidation/     ← prune and merge memories ★
+│  │  ├─ memory-consolidation/     ← prune and merge memories ★
+│  │  ├─ mcp-builder/             ← guide for creating MCP servers ★★
+│  │  ├─ triage-issue/            ← auto-triage GitHub issues ★★
+│  │  └─ skill-creator/           ← meta-skill for making new skills ★★
 │  ├─ output-styles/                ← switchable response modes ★
 │  │  ├─ default.md                ← concise, action-oriented
 │  │  ├─ performance-focused.md    ← performance analysis mode
@@ -113,6 +116,7 @@ This template solves that with clear rules, specialized subagents, and repeatabl
 │     ├─ pre-tool-use.sh            ← blocks rm -rf, force push, DROP TABLE
 │     ├─ post-edit-lint.sh          ← auto-lints edited files (eslint/ruff/gofmt)
 │     ├─ protect-files.sh           ← blocks editing .env, lock files, dist/
+│     ├─ security-check.py         ← scans for security anti-patterns ★★
 │     └─ session-report.sh          ← prints branch + diff stats on session end
 ├─ memory/                          ← individual memory files (auto-managed)
 │  └─ team/                         ← shared team memories ★
@@ -202,6 +206,9 @@ Skills are workflow playbooks invoked with `/skill-name` or via the `Skill` tool
 | `doctor` | Diagnose project environment and configuration |
 | `session-memory` | Track live session progress in real-time |
 | `memory-consolidation` | Prune, merge, and consolidate stale memories |
+| `mcp-builder` | Guide for creating new MCP servers (TypeScript/Python) |
+| `triage-issue` | Auto-triage GitHub issues with labels and duplicate check |
+| `skill-creator` | Meta-skill for creating new project-specific skills |
 | `project-bootstrap` | Initialize a new project from this template |
 | `upgrade-template` | Bring an existing project up to the current template |
 | `documentation-sync` | Keep docs in sync with code changes |
@@ -254,6 +261,7 @@ Lifecycle hooks run automatically to enforce safety and quality:
 |---|---|---|
 | `pre-tool-use.sh` | PreToolUse (Bash) | Blocks destructive commands |
 | `protect-files.sh` | PreToolUse (Edit/Write) | Blocks editing protected files |
+| `security-check.py` | PreToolUse (Edit/Write) | Scans for SQL injection, XSS, eval, hardcoded secrets |
 | `post-edit-lint.sh` | PostToolUse (Edit/Write) | Auto-lints changed files |
 | Commit validator | PostToolUse (Bash) | Validates Conventional Commits format |
 | SessionStart | SessionStart | Checks node_modules presence |
@@ -306,4 +314,4 @@ If you discover a pattern, guardrail, or workflow that should be in the template
 
 ---
 
-*Template version: 3.1.0 — 2026-04-02*
+*Template version: 3.2.0 — 2026-04-02*

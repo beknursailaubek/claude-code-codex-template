@@ -47,6 +47,12 @@
             "type": "command",
             "command": ".claude/hooks/protect-files.sh",
             "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "python3 .claude/hooks/security-check.py",
+            "timeout": 5,
+            "statusMessage": "Security check..."
           }
         ]
       }
